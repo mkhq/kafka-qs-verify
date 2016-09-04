@@ -5,16 +5,6 @@ import com.twitter.finagle.{ChannelException, Http, Service}
 import com.twitter.finagle.context.RemoteInfo
 import com.twitter.finagle.http.{Method, Request, Response, Status}
 import com.twitter.util.{Await, Future}
-import com.twitter.server.TwitterServer
-
-import java.nio.file.{Files, Paths}
-import java.util.Properties
-
-import org.apache.kafka.clients.consumer.ConsumerConfig
-import org.apache.kafka.common.serialization._
-import org.apache.kafka.streams._
-import org.apache.kafka.streams.kstream._
-import org.apache.kafka.streams.state._
 
 import util.Try
 
