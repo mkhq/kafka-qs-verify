@@ -25,7 +25,7 @@ object Topology {
     Files.createDirectories(Paths.get(stateDir))
 
     val settings = new Properties()
-    settings.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+    //settings.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
     settings.put(StreamsConfig.APPLICATION_ID_CONFIG, app)
     settings.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092")
     settings.put(StreamsConfig.ZOOKEEPER_CONNECT_CONFIG, "localhost:2181")
