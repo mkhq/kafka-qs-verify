@@ -56,7 +56,8 @@ extends TwitterServer {
       Future.value(resp)
     })
 
-    onExit {
+    sys.addShutdownHook {
+      println(s"Closing down kafka streams instance ${instanceIdFlag()}")
       server.close()
       streams.close
     }

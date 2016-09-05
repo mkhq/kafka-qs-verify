@@ -11,12 +11,14 @@ import org.apache.kafka.streams.state._
 
 import util.{Try, Success, Failure}
 
+import org.apache.kafka.streams.KeyValue
+
 object Topology {
   trait ReadError extends Throwable
   case class StoreUnavailable(table: String) extends ReadError
   case class KeyNotFound(table: String, key: String) extends ReadError
 
-  def instanceSettings(id: Int, app: String): Properties = {
+  def instanceSettings(id: Int, app: String, offsetReset: String = "earliest"): Properties = {
     val port = s"203$id".toInt
     val host = s"localhost:$port"
 
@@ -25,7 +27,7 @@ object Topology {
     Files.createDirectories(Paths.get(stateDir))
 
     val settings = new Properties()
-    //settings.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+    settings.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, offsetReset)
     settings.put(StreamsConfig.APPLICATION_ID_CONFIG, app)
     settings.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092")
     settings.put(StreamsConfig.ZOOKEEPER_CONNECT_CONFIG, "localhost:2181")
@@ -56,11 +58,7 @@ object Topology {
     val stream = builder.stream(Serdes.String, Serdes.String, topic)
 
     stream
-      .map(new KeyValueMapper[String, String, KeyValue[String, String]]() {
-        override def apply(key: String, value: String): KeyValue[String, String] = {
-          new KeyValue(value.toLowerCase, value)
-        }
-      })
+      .map((_, value) => new KeyValue(value.toLowerCase, value))
       .groupByKey
       .count(table)
 
