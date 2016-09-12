@@ -6,17 +6,21 @@ import java.util.Properties
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization._
 import org.apache.kafka.streams._
+import org.apache.kafka.streams.errors.InvalidStateStoreException
 import org.apache.kafka.streams.kstream._
 import org.apache.kafka.streams.state._
 
 import util.{Try, Success, Failure}
 
-import org.apache.kafka.streams.KeyValue
-
 object Topology {
-  trait ReadError extends Throwable
-  case class StoreUnavailable(table: String) extends ReadError
-  case class KeyNotFound(table: String, key: String) extends ReadError
+
+  object Errors {
+    trait ReadError extends Throwable
+    case class StoreUnavailable(table: String) extends ReadError
+    case class StoreUnknownError(table: String, error: Throwable) extends ReadError
+    case class KeyNotFound(table: String, key: String) extends ReadError
+    case class KeyAtOtherStore(location: String) extends ReadError
+  }
 
   def instanceSettings(id: Int, app: String, offsetReset: String = "earliest"): Properties = {
     val port = s"203$id".toInt
@@ -40,11 +44,30 @@ object Topology {
   }
 
   implicit class KafkaStreamsPlus(streams: KafkaStreams) {
+    import Errors._
+
+    def verifyKeyAtHost(table: String, key: String, host: String): Try[Unit] = {
+      // verify that this host should store the key
+      val hostInfo = streams.metadataForKey(table, key, Serdes.String.serializer)
+      val newHost = s"${hostInfo.host}:${hostInfo.port}"
+
+      if(newHost == host) Success(())
+      else Failure(KeyAtOtherStore(newHost))
+    }
+
     def read(table: String, key: String): Try[Long] = {
       // NOTE: this cannot be a scala Long since it will return 0 instead of null
-      streams.store(table, QueryableStoreTypes.keyValueStore[String, java.lang.Long]) match {
-        case null => Failure(StoreUnavailable(table))
-        case store =>
+      Try(streams.store(table, QueryableStoreTypes.keyValueStore[String, java.lang.Long])) match {
+        case Failure(isse: InvalidStateStoreException) =>
+          Failure(StoreUnavailable(table))
+
+        case Failure(exc: Throwable) =>
+          Failure(StoreUnknownError(table, exc))
+
+        case Success(null) =>
+          Failure(StoreUnavailable(table))
+
+        case Success(store) =>
           store.get(key) match {
             case null => Failure(KeyNotFound(table, key))
             case value => Success(value)
